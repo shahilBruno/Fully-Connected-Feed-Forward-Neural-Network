@@ -17,15 +17,14 @@ class Dense_Layer:
     def __init__(self, n, m, a='sigmoid'):
         self.no_of_input = n
         self.no_of_neuron = m
-        self.weights = np.random.randn(n, m).astype(np.float64)
-        self.biases = np.random.randn(m).astype(np.float64)
+        self.weights = np.random.randn(m, n+1).astype(np.float64)# Add the biases in weights by adding 1 in input
         self.activation = a
         self.output = None
         self.input = None
 
     def activate(self, neuron_input):
         self.input = neuron_input.astype(np.float64)
-        combination = np.dot(self.input, self.weights) + self.biases
+        combination = np.dot(self.weights, self.input) # Using the formulas : weights dot input
         self.combination = combination
 
         if self.activation == 'sigmoid':
@@ -41,8 +40,10 @@ class Model:
         self.outputs = None
         self.___task_type = 'regression' # or classification
 
-
-    def propagate(self, model_input):
+"""
+Here, we shall use the F-adjoint formulation (A new alternative to the backpropagation method) introduced in my recent arxiv preprint: https://arxiv.org/abs/2304.13820
+"""
+    def F_propagate(self, model_input):
         model_input = model_input.astype(np.float64)
         for layer in self.layers:
             layer.activate(model_input)
@@ -54,7 +55,7 @@ class Model:
         squared_diff = (y - self.outputs) ** 2
         return np.mean(squared_diff)
 
-    def back_propagate(self, y, alpha=0.01):
+    def Fstar_propagate(self, y, alpha=0.01):
         y = y.astype(np.float64)
         alpha = np.float64(alpha)
         error = self.outputs - y
