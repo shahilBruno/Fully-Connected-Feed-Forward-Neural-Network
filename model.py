@@ -17,23 +17,24 @@ class Dense_Layer:
     def __init__(self, n, m, a='sigmoid'):
         self.no_of_input = n
         self.no_of_neuron = m
-        self.weights = np.random.randn(n, m).astype(np.float64)
-        self.biases = np.random.randn(m).astype(np.float64)
+        self.weights = np.random.randn(m, n+1).astype(np.float64)# Add the biases in weights by adding 1 in input
         self.activation = a
         self.output = None
         self.input = None
 
     def activate(self, neuron_input):
         self.input = neuron_input.astype(np.float64)
-        combination = np.dot(self.input, self.weights) + self.biases
-        self.combination = combination
+        x= np.vstack((self.input, np.ones((1,self.input.shape[1])) ))
+        y = np.dot(self.weights, x) # Using the formulas : weights dot input augmented by ones
+        self.combination = y
 
         if self.activation == 'sigmoid':
-            self.output = sigmoid(combination)
+            self.output = np.vstack((sigmoid(y), np.ones((1,sigmoid(y).shape[1])) ))
         elif self.activation == 'lu':
-            self.output = combination
+            self.output = np.vstack((y, np.ones((1,y.shape[1])) ))
         elif self.activation == 'relu':
-            self.output = np.maximum(0, combination)
+            self.output =np.vstack((np.maximum(0, y), np.ones((1,np.maximum(0, y).shape[1])) ))
+            
 
 class Model:
     def __init__(self, list_of_dense_layers):
@@ -41,20 +42,22 @@ class Model:
         self.outputs = None
         self.___task_type = 'regression' # or classification
 
-
-    def propagate(self, model_input):
+"""
+Here, we shall use the F-adjoint formulation (A new alternative to the backpropagation method) introduced in my recent arxiv preprint: https://arxiv.org/abs/2304.13820
+"""
+    def F_propagation(self, model_input):
         model_input = model_input.astype(np.float64)
         for layer in self.layers:
             layer.activate(model_input)
             model_input = layer.output
-        self.outputs = self.layers[-1].output
+        self.outputs = self.layers[-1].output[:,:-1] # We should  dellete tne added ones from the output layer activation.
         return self.outputs
 
     def mean_square_error(self, y):
         squared_diff = (y - self.outputs) ** 2
         return np.mean(squared_diff)
 
-    def back_propagate(self, y, alpha=0.01):
+    def Fstar_propagation(self, y, alpha=0.01):
         y = y.astype(np.float64)
         alpha = np.float64(alpha)
         error = self.outputs - y
@@ -63,7 +66,8 @@ class Model:
             layer = self.layers[i]
 
             if layer.activation == 'sigmoid':
-                delta = error * sigmoid_derivative(layer.combination)
+                xstar = error
+                ystar=xstar * sigmoid_derivative(layer.combination)
             elif layer.activation == 'relu':
                 delta = error * (layer.combination > 0).astype(np.float64)
             else:  # for linear activation 'lu'
